@@ -1,6 +1,6 @@
 const CONTACT = {
   telegram: "HRenar",
-  email: "raanhabibullin63r@gmail.com",
+  email: "renark@internet.ru",
 };
 
 const nav = document.querySelector(".nav");
