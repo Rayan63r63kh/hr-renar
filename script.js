@@ -1,5 +1,6 @@
 const CONTACT = {
   telegram: "HRenar",
+  email: "raanhabibullin63r@gmail.com",
 };
 
 const nav = document.querySelector(".nav");
@@ -48,9 +49,53 @@ function telegramUrl(text) {
   return `https://t.me/${CONTACT.telegram}?text=${encodeURIComponent(text)}`;
 }
 
-function sendToTelegram(text, status, successMessage) {
-  window.open(telegramUrl(text), "_blank", "noopener,noreferrer");
-  if (status) status.textContent = successMessage;
+function mailtoUrl(subject, body) {
+  return `mailto:${CONTACT.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+}
+
+async function sendToEmail(fields) {
+  const response = await fetch(`https://formsubmit.co/ajax/${CONTACT.email}`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    },
+    body: JSON.stringify({
+      ...fields,
+      _template: "table",
+      _captcha: "false",
+    }),
+  });
+  if (!response.ok) throw new Error("email failed");
+}
+
+async function submitLead({ form, status, subject, fields, telegramText }) {
+  const button = form.querySelector('button[type="submit"]');
+  if (button) button.disabled = true;
+  if (status) status.textContent = "Отправляю на почту и открываю Telegram…";
+
+  let emailOk = false;
+  try {
+    await sendToEmail({ _subject: subject, ...fields });
+    emailOk = true;
+  } catch (error) {
+    emailOk = false;
+  }
+
+  window.open(telegramUrl(telegramText), "_blank", "noopener,noreferrer");
+
+  if (!emailOk) {
+    window.open(mailtoUrl(subject, telegramText), "_self");
+  }
+
+  if (status) {
+    status.textContent = emailOk
+      ? "Заявка ушла на почту. В Telegram нажмите «Отправить», чтобы продублировать сообщение."
+      : "Открыл почту и Telegram. Отправьте оба сообщения, чтобы заявка дошла.";
+  }
+
+  form.reset();
+  if (button) button.disabled = false;
 }
 
 if (consultForm) {
@@ -58,19 +103,26 @@ if (consultForm) {
   consultForm.addEventListener("submit", (event) => {
     event.preventDefault();
     const data = new FormData(consultForm);
-    const text = [
+    const fields = {
+      Имя: data.get("name") || "—",
+      Компания: data.get("company") || "—",
+      Контакт: data.get("contact") || "—",
+      Запрос: data.get("need") || "—",
+    };
+    const telegramText = [
       "Заявка на консультацию с сайта Renar",
-      `Имя: ${data.get("name") || "—"}`,
-      `Компания: ${data.get("company") || "—"}`,
-      `Контакт: ${data.get("contact") || "—"}`,
-      `Запрос: ${data.get("need") || "—"}`,
+      `Имя: ${fields.Имя}`,
+      `Компания: ${fields.Компания}`,
+      `Контакт: ${fields.Контакт}`,
+      `Запрос: ${fields.Запрос}`,
     ].join("\n");
-    sendToTelegram(
-      text,
+    submitLead({
+      form: consultForm,
       status,
-      "Открыл Telegram @HRenar. Нажмите «Отправить», чтобы заявка ушла мне."
-    );
-    consultForm.reset();
+      subject: "Заявка на консультацию — Renar",
+      fields,
+      telegramText,
+    });
   });
 }
 
@@ -81,11 +133,12 @@ if (checklistForm) {
   checklistForm.addEventListener("submit", (event) => {
     event.preventDefault();
     const lead = new FormData(checklistForm).get("lead") || "—";
-    sendToTelegram(
-      `Запрос чек-листа HR-аудита с сайта Renar\nКонтакт: ${lead}`,
+    submitLead({
+      form: checklistForm,
       status,
-      "Открыл Telegram @HRenar. Нажмите «Отправить», чтобы запрос ушёл мне."
-    );
-    checklistForm.reset();
+      subject: "Запрос чек-листа — Renar",
+      fields: { Контакт: lead, Форма: "Чек-лист HR-аудита" },
+      telegramText: `Запрос чек-листа HR-аудита с сайта Renar\nКонтакт: ${lead}`,
+    });
   });
 }
